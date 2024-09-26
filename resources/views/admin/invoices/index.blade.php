@@ -213,7 +213,7 @@
                                                 <p class="badge badge-{{ $invoice->invoice_status->color }}">
                                                     {{ $invoice->invoice_status->name }}</p>
                                             </td>
-                                            <td style="text-wrap:nowrap;">{{ $invoice->date }}</td>
+                                            <td style="text-wrap:nowrap;">{{ date('d-m-Y', strtotime($invoice->date)) }}</td>
                                             <td>
                                                 <div class="d-flex">
                                                     <button class="btn btn-outline-dark btn-sm btn-print me-1"
@@ -254,13 +254,11 @@
                 </div>
                 <!-- /.row -->
             </div><!-- /.container-fluid -->
-            <div id="print-section" style="display: none;"></div>
         </section>
         <!-- /.content -->
     </div>
-    <div class="content-wrapper" id="invoice-content" style="display: none;">
-
-    </div>
+    
+   
     <!-- /.content-wrapper -->
 
     @if (Session::has('message'))
@@ -279,7 +277,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
     <script>
         $(document).ready(function() {
-            $('#invoice-content').hide();
             $.validator.addMethod("checkEndDate", function(value, element, param) {
                 let startDate = $(param).val();
                 return startDate === "" || value !==
@@ -372,27 +369,84 @@
 
             });
 
+            // $('.btn-print').on('click', function() {
+            //     var invoiceId = $(this).data('id'); // Get invoice ID from button data attribute
+            //     $.ajax({
+            //         url: '/admin/invoice_print/' + invoiceId +
+            //             '/content', // Route to fetch invoice content
+            //         type: 'GET',
+            //         success: function(response) {
+            //             console.log(response.html);
+            //             if (response.html) {
+            //                 // Hide the current form and table content
+            //                 $('.invoice-content').hide();
+
+            //                 // Inject the HTML content into the print section
+            //                 $('#invoice-content').html(response.html).show();
+
+            //                 // Trigger the print function
+            //                 window.print();
+
+            //                 // After printing, restore the original content
+            //                 $('#invoice-content').hide();
+            //                 $('.invoice-content').show();
+            //             } else {
+            //                 console.error('No HTML content received.');
+            //             }
+            //         },
+            //         error: function(xhr) {
+            //             console.error('Error fetching invoice content:', xhr);
+            //         }
+            //     });
+            // });
+
             $('.btn-print').on('click', function() {
                 var invoiceId = $(this).data('id'); // Get invoice ID from button data attribute
                 $.ajax({
-                    url: '/admin/invoice_print/' + invoiceId +
-                        '/content', // Route to fetch invoice content
+                    url: '/admin/invoice_print/' + invoiceId + '/content', // Route to fetch invoice content
                     type: 'GET',
                     success: function(response) {
-                        console.log(response.html);
                         if (response.html) {
-                            // Hide the current form and table content
-                            $('.invoice-content').hide();
+                            // Create a hidden iframe
+                            var iframe = document.createElement('iframe');
 
-                            // Inject the HTML content into the print section
-                            $('#invoice-content').html(response.html).show();
 
-                            // Trigger the print function
-                            window.print();
+                            document.body.appendChild(iframe); // Append iframe to body
 
-                            // After printing, restore the original content
-                            $('#invoice-content').hide();
-                            $('.invoice-content').show();
+                            // Get the iframe document
+                            var doc = iframe.contentWindow.document;
+                            doc.open();
+                            var styles = '';
+                            Array.from(document.styleSheets).forEach((styleSheet) => {
+                                if (styleSheet.href) {
+                                    styles += '<link rel="stylesheet" href="' +
+                                        styleSheet.href + '">';
+                                }
+                            });
+                            doc.write(`
+                                <html>
+                                    <head>
+                                        <title>Invoice</title>
+                                        ${styles} <!-- Include stylesheets -->
+                                    </head>
+                                    <body>
+                                        ${response.html} <!-- Include the HTML content -->
+                                    </body>
+                                </html>
+                            `);
+                            // doc.write(response.html);    // Write the HTML response into the iframe
+                            doc.close();
+
+                            // Wait for the content to be fully loaded before printing
+                            iframe.onload = function() {
+                                iframe.contentWindow.focus();
+                                iframe.contentWindow.print();
+                                document.body.removeChild(
+                                iframe); // Clean up the iframe after printing
+                            }; // Trigger print in the iframe
+
+                            // Optional: Remove the iframe after printing
+
                         } else {
                             console.error('No HTML content received.');
                         }
@@ -402,6 +456,7 @@
                     }
                 });
             });
+
 
             // $('#download-zip').click(function() {
             //     var selectedInvoices = [];
